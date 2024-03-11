@@ -1,0 +1,146 @@
+{
+    "end": "1709535630",
+    "report": {
+        "index": [
+        ],
+        "assessmentVersion": "3.1.6",
+        "assessmentReportVersion": "1.0.1",
+        "commit": "ahso2mom3neiviungoh4ENgahXie2Aer4ain5oba-E",
+        "oasVersion": "3.0.0",
+        "apiVersion": "1.0.0",
+        "fileId": "c65d4166-ddf7-11ee-a7f6-bf9763730afb",
+        "apiId": "",
+        "openapiState": "valid",
+        "score": 100,
+        "valid": true,
+        "criticality": 0,
+        "issueCounter": 0,
+        "minimalReport": false,
+        "maxEntriesPerIssue": 30,
+        "maxImpactedPerEntry": 30,
+        "security": {
+            "issueCounter": 0,
+            "score": 100,
+            "criticality": 4,
+            "issues": {},
+            "subgroupIssueCounter": {
+                "authentication": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                },
+                "authorization": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                },
+                "transport": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                }
+            }
+        },
+        "data": {
+            "issueCounter": 0,
+            "score": 100,
+            "criticality": 0,
+            "issues": {},
+            "subgroupIssueCounter": {
+                "parameters": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                },
+                "responseHeader": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                },
+                "responseDefinition": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                },
+                "schema": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                },
+                "paths": {
+                    "none": 0,
+                    "info": 0,
+                    "low": 0,
+                    "medium": 0,
+                    "high": 0,
+                    "critical": 0
+                }
+            }
+        },
+        "issuesKey": [
+        ],
+        "summary": {
+            "oasVersion": "3.0.0",
+            "apiVersion": "1.0.0",
+            "basepath": "",
+            "apiName": "Example Authentication Service",
+            "description": "Authentication Service",
+            "endpoints": [
+                "https://auth-dev-internal.example.com/",
+                "https://auth-dev-internal.example.com/"
+            ],
+            "pathCounter": 1,
+            "operationCounter": 7,
+            "parameterCounter": 4,
+            "requestBodyCounter": 0,
+            "schemesCounter": {
+                "https": 7
+            },
+            "requestContentType": {},
+            "responseContentType": {
+                "application/json": 0
+            },
+            "securitySchemes": {
+                "ApiKeyAuth": {
+                    "counterInsecure": 0,
+                    "counterSecure": 0,
+                    "type": "apiKey",
+                    "apiKeyIn": "header",
+                    "apiKeyName": "X-API-Key"
+                }
+            },
+            "componentsSchemasCounter": 6,
+            "componentsResponsesCounter": 0,
+            "componentsParametersCounter": 2,
+            "componentsExamplesCounter": 0,
+            "componentsRequestBodiesCounter": 0,
+            "componentsHeadersCounter": 0,
+            "componentsSecuritySchemesCounter": 1,
+            "componentsLinksCounter": 0,
+            "componentsCallbacksCounter": 0
+        }
+    },
+    "start": "1702028474",
+    "taskId": "0ccd5572-ddf9-11ee-935d-d7d416afd73f"
+}
