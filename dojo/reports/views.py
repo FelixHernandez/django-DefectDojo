@@ -1,6 +1,7 @@
 import logging
 import re
 import csv
+import os
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from tempfile import NamedTemporaryFile
@@ -14,7 +15,6 @@ from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied
-from django.views import View
 
 from dojo.filters import ReportFindingFilter, EndpointReportFilter, \
     EndpointFilter
@@ -30,6 +30,7 @@ from dojo.authorization.roles_permissions import Permissions
 from dojo.authorization.authorization import user_has_permission_or_403
 from dojo.finding.queries import get_authorized_findings
 from dojo.finding.views import BaseListFindings
+from django.views import View
 
 logger = logging.getLogger(__name__)
 
@@ -53,73 +54,112 @@ def report_url_resolver(request):
     return url_resolver + ":" + request.META['SERVER_PORT']
 
 
-def report_builder(request):
-    add_breadcrumb(title="Report Builder", top_level=True, request=request)
-    findings = get_authorized_findings(Permissions.Finding_View)
-    findings = ReportFindingFilter(request.GET, queryset=findings)
-    endpoints = Endpoint.objects.filter(finding__active=True,
-                                        finding__verified=True,
-                                        finding__false_p=False,
-                                        finding__duplicate=False,
-                                        finding__out_of_scope=False,
-                                        ).distinct()
+class ReportBuilder(View):
+    def get_available_widgets(self):
+        return [
+            CoverPage(request=self.request),
+            TableOfContents(request=self.request),
+            WYSIWYGContent(request=self.request),
+            FindingList(request=self.request, findings=self.findings),
+            EndpointList(request=self.request, endpoints=self.endpoints),
+            PageBreak()
+        ]
 
-    endpoints = EndpointFilter(request.GET, queryset=endpoints, user=request.user)
+    def get_in_use_widgets(self):
+        return [ReportOptions(request=self.request)]
 
-    in_use_widgets = [ReportOptions(request=request)]
-    available_widgets = [CoverPage(request=request),
-                         TableOfContents(request=request),
-                         WYSIWYGContent(request=request),
-                         FindingList(request=request, findings=findings),
-                         EndpointList(request=request, endpoints=endpoints),
-                         PageBreak()]
-    return render(request,
-                  'dojo/report_builder.html',
-                  {"available_widgets": available_widgets,
-                   "in_use_widgets": in_use_widgets})
+    def get_template(self):
+        return 'dojo/report_builder.html'
+
+    def get(self, request):
+        self.request = request
+        add_breadcrumb(title="Report Builder", top_level=True, request=request)
+        findings = get_authorized_findings(Permissions.Finding_View)
+        findings = ReportFindingFilter(request.GET, queryset=findings)
+        self.findings = findings
+        endpoints = Endpoint.objects.filter(finding__active=True,
+                                            finding__verified=True,
+                                            finding__false_p=False,
+                                            finding__duplicate=False,
+                                            finding__out_of_scope=False,
+                                            ).distinct()
+
+        endpoints = EndpointFilter(request.GET, queryset=endpoints, user=request.user)
+        self.endpoints = endpoints
+        in_use_widgets = self.get_in_use_widgets()
+        available_widgets = self.get_available_widgets()
+        return render(request,
+                      self.get_template(),
+                      {"available_widgets": available_widgets,
+                       "in_use_widgets": in_use_widgets})
 
 
-def custom_report(request):
-    # saving the report
-    form = CustomReportJsonForm(request.POST)
-    host = report_url_resolver(request)
-    if form.is_valid():
+class CustomReport(View):
+
+    def get_selected_widgets(self, request):
         selected_widgets = report_widget_factory(json_data=request.POST['json'], request=request, user=request.user,
-                                                 finding_notes=False, finding_images=False, host=host)
-        report_format = 'AsciiDoc'
-        finding_notes = True
-        finding_images = True
-
+                                     finding_notes=False, finding_images=False, host=report_url_resolver(request))
         if 'report-options' in selected_widgets:
             options = selected_widgets['report-options']
-            report_format = options.report_type
             finding_notes = (options.include_finding_notes == '1')
             finding_images = (options.include_finding_images == '1')
+            selected_widgets = report_widget_factory(json_data=request.POST['json'], request=request, user=request.user,
+                                                     finding_notes=finding_notes, finding_images=finding_images, host=report_url_resolver(request))
+            return selected_widgets
 
-        selected_widgets = report_widget_factory(json_data=request.POST['json'], request=request, user=request.user,
-                                                 finding_notes=finding_notes, finding_images=finding_images, host=host)
+    def get_form(self, request):
+        return CustomReportJsonForm(request.POST)
 
-        if report_format == 'AsciiDoc':
-            widgets = list(selected_widgets.values())
-            return render(request,
-                          'dojo/custom_asciidoc_report.html',
-                          {"widgets": widgets,
-                           "host": host,
-                           "finding_notes": finding_notes,
-                           "finding_images": finding_images,
-                           "user_id": request.user.id})
-        elif report_format == 'HTML':
-            widgets = list(selected_widgets.values())
-            return render(request,
-                          'dojo/custom_html_report.html',
-                          {"widgets": widgets,
-                           "host": "",
-                           "finding_notes": finding_notes,
-                           "finding_images": finding_images,
-                           "user_id": request.user.id})
+    def get_context_data(self, request):
+        widgets = list(self.selected_widgets.values())
+        if self.report_format == 'AsciiDoc':
+            return {
+                "widgets": widgets,
+                "host": self.host,
+                "finding_notes": self.finding_notes,
+                "finding_images": self.finding_images,
+                "user_id": request.user.id
+            }
+        elif self.report_format == 'HTML':
+            return {
+                "widgets": widgets,
+                "host": '',
+                "finding_notes": self.finding_notes,
+                "finding_images": self.finding_images,
+                "user_id": request.user.id
+            }
+
+    def get_template(self):
+        if self.report_format == 'AsciiDoc':
+            return 'dojo/custom_asciidoc_report.html'
+        elif self.report_format == 'HTML':
+            return 'dojo/custom_html_report.html'
         else:
             raise PermissionDenied()
-    else:
+
+    def post(self, request):
+        form = self.get_form(request)
+        self.host = report_url_resolver(request)
+        if form.is_valid():
+            selected_widgets = self.get_selected_widgets(request)
+
+            self.report_format = 'AsciiDoc'
+            self.finding_notes = True
+            self.finding_images = True
+
+            if 'report-options' in selected_widgets:
+                self.options = selected_widgets['report-options']
+                self.report_format = self.options.report_type
+                self.finding_notes = (self.options.include_finding_notes == '1')
+                self.finding_images = (self.options.include_finding_images == '1')
+
+            self.selected_widgets = self.get_selected_widgets(request)
+
+            return render(request, self.get_template(), self.get_context_data(request))
+        else:
+            raise PermissionDenied()
+
+    def get(self, request):
         raise PermissionDenied()
 
 
@@ -846,7 +886,6 @@ class CSVExportView(View):
             self.finding = finding
             if first_row:
                 fields = []
-                self.fields = fields
                 for key in dir(finding):
                     try:
                         if key not in excludes_list and (not callable(getattr(finding, key)) or key in allowed_attributes) and not key.startswith('_'):
@@ -865,9 +904,6 @@ class CSVExportView(View):
                 fields.append('product')
                 fields.append('endpoints')
                 fields.append('vulnerability_ids')
-                fields.append('tags')
-                self.fields = fields
-                self.add_extra_headers()
 
                 writer.writerow(fields)
 
@@ -924,22 +960,6 @@ class CSVExportView(View):
                 if vulnerability_ids_value.endswith('; '):
                     vulnerability_ids_value = vulnerability_ids_value[:-2]
                 fields.append(vulnerability_ids_value)
-                # Tags
-                tags_value = ''
-                num_tags = 0
-                for tag in finding.tags.all():
-                    num_tags += 1
-                    if num_tags > 5:
-                        tags_value += '...'
-                        break
-                    tags_value += f'{str(tag)}; '
-                if tags_value.endswith('; '):
-                    tags_value = tags_value[:-2]
-                fields.append(tags_value)
-
-                self.fields = fields
-                self.finding = finding
-                self.add_extra_values()
 
                 writer.writerow(fields)
 
@@ -1008,13 +1028,6 @@ class ExcelExportView(View):
                 col_num += 1
                 cell = worksheet.cell(row=row_num, column=col_num, value='vulnerability_ids')
                 cell.font = font_bold
-                col_num += 1
-                cell = worksheet.cell(row=row_num, column=col_num, value='tags')
-                cell.font = font_bold
-                col_num += 1
-                self.row_num = row_num
-                self.col_num = col_num
-                self.add_extra_headers()
 
                 row_num = 2
             if row_num > 1:
